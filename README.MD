@@ -16,4 +16,4 @@ Running the bot:
 
 To view commands supported enter: __/help__ in the private chat with Bot of your Nostr client app (Amethyst, IRIS etc.)
 
-<img src= "https://github.com/ponthief/nostr_boltcard_bot/blob/master/nostr_boltcard_bot_help.jpg" width="350" height="550">
+<img src= "https://github.com/ponthief/nostroBolt/blob/master/nostr_boltcard_bot_help.jpg" width="350" height="550">
