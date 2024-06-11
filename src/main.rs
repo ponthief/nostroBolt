@@ -1,12 +1,13 @@
 // Copyright (c) 2022-2023 Yuki Kishimoto
 // Distributed under the MIT software license
 use regex::RegexSet;
+use std::time::Duration;
 use nostr_sdk::prelude::*;
 type Error = Box<dyn std::error::Error>;
 type Result<T, E = Error> = std::result::Result<T, E>;
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-const BECH32_SK: &str = "<your nostr private key>";
+const BECH32_SK: &str = "<nsec key>";
 
 #[derive(Serialize, Deserialize, Debug)]
 struct BoltCardUpdateResponse {
@@ -85,12 +86,12 @@ async fn main() ->  Result<()> {
     env_logger::init();
     let secret_key = SecretKey::from_bech32(BECH32_SK)?;
     let keys = Keys::new(secret_key);
-    let opts = Options::new().wait_for_send(false);
+    let opts = Options::new().skip_disconnected_relays(true)
+    .connection_timeout(Some(Duration::from_secs(10)))
+    .send_timeout(Some(Duration::from_secs(5)));
     let client = Client::with_opts(&keys, opts);
-
-    // client.add_relay("wss://nostr.oxtr.dev", None).await?;
-    // client.add_relay("wss://relay.damus.io", None).await?;
-    client.add_relay("wss://nostr.mom", None).await?;
+    
+    client.add_relay("wss://nostr.mom").await?;
 
     client.connect().await;
 
@@ -99,47 +100,49 @@ async fn main() ->  Result<()> {
     let metadata = Metadata::new()
         .name("BoltCardBot")
         .display_name("BoltCard Service Bot")
-        .website(Url::parse("https://bitbest.net")?);
-    client.set_metadata(metadata).await?;
+        .website(Url::parse("https://example.com")?);
+    client.set_metadata(&metadata).await?;
 
     let subscription = Filter::new()
         .pubkey(keys.public_key())
-        .kind(Kind::EncryptedDirectMessage)
-        .since(Timestamp::now());
+        .kind(Kind::GiftWrap)
+        .limit(0);
 
-    client.subscribe(vec![subscription]).await;
+    client.subscribe(vec![subscription], None).await;
 
     client.handle_notifications(|notification| async {
-            if let RelayPoolNotification::Event(_url, event) = notification {
-                if event.kind == Kind::EncryptedDirectMessage {
+            if let RelayPoolNotification::Event {event, .. } = notification {
+                if event.kind == Kind::GiftWrap {
                     let mut content: String = String::from("Invalid command, send /help to see all commands.");
-                    match decrypt(&keys.secret_key()?, &event.pubkey, &event.content) {
-                        Ok(msg) => {
+                    match UnwrappedGift::from_gift_wrap(&keys, &event) {                    
+                            Ok(UnwrappedGift { rumor, sender }) => {
+                                if rumor.kind == Kind::PrivateDirectMessage {
                             let re = RegexSet::new(&[r"/freeze (\w+)", 
                             r"/enable (\w+)",
                             r"/tx_max (\w+) (\d+)",
                             r"/day_max (\w+) (\d+)",
                             r"/get (\w+)",
-                            r"/help"]).unwrap();
-                            let matches = re.matches(msg.as_str());
+                            r"/help"]).unwrap();                            
+                            let matches = re.matches(rumor.content.as_str());
                             for i in 0..6 {
                                 let matched = matches.matched(i);
                                 if matched {
                                     match i {
-                                     0..=4 =>   content = process_bolt_card_req(msg.clone()).await?,                                     
+                                     0..=4 =>   content = process_bolt_card_req(rumor.content.clone()).await?,                                     
                                      5 =>  content = help(),                                     
                                     _ => todo!()
                                     }                                    
                                 }
                             }                                                                                   
-
-                            client.send_direct_msg(event.pubkey, content).await?;
+                            
+                            client.send_private_msg(sender, content, None).await?;
+                          }
                         }
                         Err(e) => log::error!("Impossible to decrypt direct message: {e}"),                       
                     }
                 }
             }
-            Ok(()) // Set to true to exit from the loop
+            Ok((false)) // Set to true to exit from the loop
         })
         .await?;
 
