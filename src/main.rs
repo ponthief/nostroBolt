@@ -142,7 +142,7 @@ async fn main() ->  Result<()> {
                     }
                 }
             }
-            Ok((false)) // Set to true to exit from the loop
+            Ok(false) // Set to true to exit from the loop
         })
         .await?;
 

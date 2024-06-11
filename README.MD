@@ -13,7 +13,9 @@ Running the bot:
  - edit/save __src/main.rs__: set **BECH32_SK** variable to your Nostr account private key (nsec)
  - compile binary in the top folder: __cargo build__
  - run BoltCard Bot: __cargo run__
-
+ - on your mobile device Nostr client, follow the public key of the BoltCard Bot
+ 
+**Make sure that you activate Incognito mode in the chat window with Bot.**
 To view commands supported enter: __/help__ in the private chat with Bot of your Nostr client app (Amethyst, IRIS etc.)
 
 <img src= "https://github.com/ponthief/nostroBolt/blob/master/nostr_boltcard_bot_help.jpg" width="350" height="550">
